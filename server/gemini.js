@@ -1,18 +1,22 @@
-// server/config/gemini.js
-import dotenv from "dotenv";
-import { GoogleGenerativeAI } from "@google/genai";
 
+import { GoogleGenAI } from '@google/genai';
+import * as fs from 'fs';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
 dotenv.config();
 
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  console.error("Missing GEMINI_API_KEY in .env file");
-  process.exit(1);
-}
-
-const genAI = new GoogleGenerativeAI(apiKey);
-
-// you can change the model name if needed
-export const geminiModel = genAI.getGenerativeModel({
-  model: "gemini-1.5-pro",
+// Initialize Gemini AI
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
 });
+
+export const geminiModel = {
+  generate: async (contents) => {
+    const response = await genAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents,
+    });
+    return response.text;
+  },
+};

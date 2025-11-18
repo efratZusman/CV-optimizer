@@ -2,7 +2,7 @@
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
-import { geminiModel } from "../gemini.js";
+import { geminiModel } from "./gemini.js";
 
 const __dirname = path.resolve();
 
