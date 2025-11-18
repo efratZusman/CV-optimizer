@@ -1,4 +1,3 @@
-// server/services/cvService.js
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
@@ -40,6 +39,7 @@ function createImprovedPdf(contentText, outputFilePath) {
 }
 
 // ---------- main service: optimization for a specific job ----------
+// ---------- main service: optimization for a specific job ----------
 export async function optimizeCvForJob(uploadedFilePath, jobDescription) {
   const base64Pdf = pdfFileToBase64(uploadedFilePath);
 
@@ -79,8 +79,24 @@ Rules:
 - Return ONLY JSON. No markdown, no comments, no extra text.
 `;
 
-  const result = await geminiModel.generateContent(prompt);
-  const responseText = result.response.text().trim();
+  let responseText;
+  try {
+    // עכשיו generate מחזיר ישירות את הטקסט
+    responseText = await geminiModel.generate(prompt);
+  } catch (err) {
+    console.error("Error calling Gemini in optimizeCvForJob:", {
+      message: err.message,
+      status: err.status,
+    });
+    throw new Error("AI service is temporarily unavailable. Please try again later.");
+  }
+
+  if (!responseText || typeof responseText !== "string") {
+    console.error("Gemini returned invalid text:", responseText);
+    throw new Error("Did not receive a valid text response from AI service.");
+  }
+
+  responseText = responseText.trim();
 
   let analysis;
   try {
@@ -118,6 +134,9 @@ Rules:
   };
 }
 
+
 export function getGeneratedFilePath(filename) {
   return path.join(generatedDir, filename);
 }
+
+
