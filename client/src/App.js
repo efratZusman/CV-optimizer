@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "./App.css";
 
 function App() {
   const [cvFile, setCvFile] = useState(null);
@@ -63,48 +64,97 @@ function App() {
   };
 
   return (
-    <div style={{ maxWidth: 800, margin: "2rem auto", fontFamily: "Arial, sans-serif" }}>
-      <h1>CV Optimizer – Specific Job</h1>
+    <div className="app-container">
+      <div className="content-wrapper">
+        <header className="app-header">
+          <h1>CV Optimizer</h1>
+          <p className="subtitle">Optimize your CV for specific job opportunities</p>
+        </header>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          Upload CV (PDF):{" "}
-          <input type="file" accept="application/pdf" onChange={handleFileChange} />
-        </label>
-      </div>
+        <div className="upload-section">
+          <div className="input-group">
+            <label className="file-label">
+              <span className="label-text">Upload CV (PDF)</span>
+              <input 
+                type="file" 
+                accept="application/pdf" 
+                onChange={handleFileChange}
+                className="file-input"
+              />
+              {cvFile && <span className="file-name">{cvFile.name}</span>}
+            </label>
+          </div>
 
-      <div style={{ marginBottom: "1rem" }}>
-        <label>
-          Job Description:
-          <textarea
-            rows={6}
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-            style={{ width: "100%", marginTop: "0.5rem" }}
-          />
-        </label>
-      </div>
+          <div className="input-group">
+            <label className="textarea-label">
+              <span className="label-text">Job Description</span>
+              <textarea
+                rows={8}
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                className="job-description-textarea"
+                placeholder="Paste the job description here..."
+              />
+            </label>
+          </div>
 
-      <button onClick={handleAnalyze} disabled={loading}>
-        {loading ? "Analyzing..." : "Analyze CV"}
-      </button>
-
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {results && (
-        <div style={{ marginTop: "2rem" }}>
-          <h2>Analysis Results:</h2>
-          <p><strong>Match Score:</strong> {results.match_score}</p>
-          <p><strong>Key Skills to Highlight:</strong> {results.key_skills_to_highlight.join(", ")}</p>
-          <p><strong>Suggested Changes:</strong> {results.suggested_changes.join(", ")}</p>
-          <p><strong>Missing Qualifications:</strong> {results.missing_qualifications.join(", ")}</p>
-          <p><strong>Specific Recommendations:</strong> {results.specific_recommendations.join(", ")}</p>
-
-          <button onClick={handleDownload} style={{ marginTop: "1rem" }}>
-            Download Improved CV
+          <button 
+            onClick={handleAnalyze} 
+            disabled={loading}
+            className="analyze-button"
+          >
+            {loading ? "Analyzing..." : "Analyze CV"}
           </button>
+
+          {error && <div className="error-message">{error}</div>}
         </div>
-      )}
+
+        {results && (
+          <div className="results-section">
+            <h2 className="results-title">Analysis Results</h2>
+            
+            <div className="result-card match-score">
+              <div className="result-label">Match Score</div>
+              <div className="result-value">{results.match_score}</div>
+            </div>
+
+            <div className="result-card">
+              <div className="result-label">Key Skills to Highlight</div>
+              <div className="result-list">
+                {results.key_skills_to_highlight.join(", ")}
+              </div>
+            </div>
+
+            <div className="result-card">
+              <div className="result-label">Suggested Changes</div>
+              <div className="result-list">
+                {results.suggested_changes.join(", ")}
+              </div>
+            </div>
+
+            <div className="result-card">
+              <div className="result-label">Missing Qualifications</div>
+              <div className="result-list">
+                {results.missing_qualifications.join(", ")}
+              </div>
+            </div>
+
+            <div className="result-card">
+              <div className="result-label">Specific Recommendations</div>
+              <div className="result-list">
+                {results.specific_recommendations.join(", ")}
+              </div>
+            </div>
+
+            <button 
+              onClick={handleDownload}
+              className="download-button"
+            >
+              Download Improved CV
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

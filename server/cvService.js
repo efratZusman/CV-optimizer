@@ -17,83 +17,64 @@ function pdfFileToBase64(filePath) {
   return fileBuffer.toString("base64");
 }
 
-function createImprovedPdf(contentObj, outputFilePath) {
+import fs from "fs";
+import PDFDocument from "pdfkit";
+
+export function createImprovedPdf(contentObj, outputFilePath) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });
-
     const stream = fs.createWriteStream(outputFilePath);
     doc.pipe(stream);
 
-    // כותרת ראשית
+    // --- כותרת ראשית ---
     doc.fontSize(20).text("Optimized CV", { align: "center", underline: true });
     doc.moveDown(1);
 
-    // Match Score
+    // --- Match Score ---
     if (contentObj.match_score !== undefined) {
       doc.fontSize(12).text(`Match Score: ${contentObj.match_score}/100`, { align: "right" });
       doc.moveDown(0.5);
     }
 
-    // Key Skills
-    if (contentObj.key_skills_to_highlight && contentObj.key_skills_to_highlight.length) {
-      doc.fontSize(14).fillColor("blue").text("Key Skills", { underline: true });
-      doc.moveDown(0.3);
-      contentObj.key_skills_to_highlight.forEach((skill) => {
-        doc.fontSize(12).fillColor("black").text(`• ${skill}`);
-      });
+    // --- Helper function for sections ---
+    const addSection = (title, items) => {
+      if (!items || items.length === 0) return;
       doc.moveDown(0.5);
-    }
-
-    // Suggested Changes
-    if (contentObj.suggested_changes && contentObj.suggested_changes.length) {
-      doc.fontSize(14).fillColor("blue").text("Suggested Changes", { underline: true });
-      doc.moveDown(0.3);
-      contentObj.suggested_changes.forEach((change) => {
-        doc.fontSize(12).fillColor("black").text(`• ${change}`);
-      });
-      doc.moveDown(0.5);
-    }
-
-    // Missing Qualifications
-    if (contentObj.missing_qualifications && contentObj.missing_qualifications.length) {
-      doc.fontSize(14).fillColor("blue").text("Missing Qualifications", { underline: true });
-      doc.moveDown(0.3);
-      contentObj.missing_qualifications.forEach((item) => {
+      doc.fontSize(14).fillColor("blue").text(title, { underline: true });
+      doc.moveDown(0.2);
+      items.forEach(item => {
         doc.fontSize(12).fillColor("black").text(`• ${item}`);
       });
-      doc.moveDown(0.5);
-    }
+    };
 
-    // Specific Recommendations
-    if (contentObj.specific_recommendations && contentObj.specific_recommendations.length) {
-      doc.fontSize(14).fillColor("blue").text("Recommendations", { underline: true });
-      doc.moveDown(0.3);
-      contentObj.specific_recommendations.forEach((rec) => {
-        doc.fontSize(12).fillColor("black").text(`• ${rec}`);
-      });
-      doc.moveDown(0.5);
-    }
+    addSection("Key Skills", contentObj.key_skills_to_highlight);
+    addSection("Suggested Changes", contentObj.suggested_changes);
+    addSection("Missing Qualifications", contentObj.missing_qualifications);
+    addSection("Recommendations", contentObj.specific_recommendations);
 
-    // Full Improved CV Text
+    // --- Full Improved CV ---
     if (contentObj.improved_cv_full_text) {
-      doc.addPage(); // אפשר להתחיל עמוד חדש
+      doc.addPage();
       doc.fontSize(16).fillColor("black").text("Full Improved CV", { underline: true });
-      doc.moveDown(0.5);
+      doc.moveDown(0.3);
 
-      const lines = contentObj.improved_cv_full_text.split("\n");
-      lines.forEach((line) => {
-        doc.fontSize(12).text(line, { align: "left" });
-        doc.moveDown(0.2);
+      const lines = contentObj.improved_cv_full_text.split(/\r?\n/);
+      lines.forEach(line => {
+        if (line.trim() === "") {
+          doc.moveDown(0.2);
+        } else {
+          doc.fontSize(12).text(line, { align: "left" });
+          doc.moveDown(0.1);
+        }
       });
     }
 
     doc.end();
 
-    stream.on("finish", resolve);
-    stream.on("error", reject);
+    stream.on("finish", () => resolve(outputFilePath));
+    stream.on("error", (err) => reject(err));
   });
 }
-
 
 // ---------- main service: optimization for a specific job ----------
 export async function optimizeCvForJob(uploadedFilePath, jobDescription) {
