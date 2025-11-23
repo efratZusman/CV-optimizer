@@ -17,84 +17,144 @@ function pdfFileToBase64(filePath) {
   return fileBuffer.toString("base64");
 }
 
-import fs from "fs";
-import PDFDocument from "pdfkit";
-
-export function createImprovedPdf(contentObj, outputFilePath) {
+function createImprovedPdf(contentText, outputFilePath) {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const doc = new PDFDocument({ margin: 50 });
     const stream = fs.createWriteStream(outputFilePath);
     doc.pipe(stream);
 
-    // --- כותרת ראשית ---
-    doc.fontSize(20).text("Optimized CV", { align: "center", underline: true });
+    // הגדרות בסיס
+    const pageWidth = doc.page.width;
+    const left = doc.page.margins.left;
+    const right = pageWidth - doc.page.margins.right;
+
+    // כותרת עליונה כללית
+    doc
+      .fontSize(20)
+      .fillColor("#1f4e79")
+      .text("Curriculum Vitae", left, doc.y, {
+        align: "center",
+        underline: true,
+      });
     doc.moveDown(1);
 
-    // --- Match Score ---
-    if (contentObj.match_score !== undefined) {
-      doc.fontSize(12).text(`Match Score: ${contentObj.match_score}/100`, { align: "right" });
-      doc.moveDown(0.5);
-    }
+    // נחזור לשחור לטקסט רגיל
+    doc.fillColor("black").fontSize(12);
 
-    // --- Helper function for sections ---
-    const addSection = (title, items) => {
-      if (!items || items.length === 0) return;
-      doc.moveDown(0.5);
-      doc.fontSize(14).fillColor("blue").text(title, { underline: true });
-      doc.moveDown(0.2);
-      items.forEach(item => {
-        doc.fontSize(12).fillColor("black").text(`• ${item}`);
+    const lines = contentText.split("\n");
+
+    for (let rawLine of lines) {
+      const line = rawLine.trimEnd();
+
+      // שורות ריקות – מרווח קטן
+      if (line.trim() === "") {
+        doc.moveDown(0.3);
+        continue;
+      }
+
+      // קו מפריד (---)
+      if (line.trim() === "---") {
+        doc
+          .moveTo(left, doc.y)
+          .lineTo(right, doc.y)
+          .stroke();
+        doc.moveDown(0.5);
+        continue;
+      }
+
+      // כותרת סעיף – מתחיל ב-### (למשל ### Summary)
+      if (line.startsWith("### ")) {
+        const title = line.substring(4).trim();
+        doc.moveDown(0.5);
+        doc
+          .fontSize(14)
+          .fillColor("#1f4e79")
+          .text(title, { underline: true });
+        doc.moveDown(0.2);
+        doc.fontSize(12).fillColor("black");
+        continue;
+      }
+
+      // כותרת מודגשת – **Title**
+      if (line.startsWith("**") && line.endsWith("**") && line.length > 4) {
+        const title = line.substring(2, line.length - 2).trim();
+        doc.moveDown(0.3);
+        doc
+          .fontSize(12)
+          .fillColor("#333333")
+          .text(title, {
+            underline: true,
+          });
+        doc.moveDown(0.15);
+        doc.fontSize(12).fillColor("black");
+        continue;
+      }
+
+      // בולט (* text או - text)
+      if ((line.startsWith("* ") || line.startsWith("- ")) && line.length > 2) {
+        const text = line.substring(2).trim();
+        doc.fontSize(12).fillColor("black").text("• " + text, {
+          align: "left",
+          indent: 10,
+        });
+        doc.moveDown(0.1);
+        continue;
+      }
+
+      // שורה עם קו אנכי (כמו בשורת הפרטים) – נמרכז מעט
+      if (line.includes("|")) {
+        doc.fontSize(11).fillColor("#333333").text(line, {
+          align: "center",
+        });
+        doc.moveDown(0.2);
+        doc.fillColor("black");
+        continue;
+      }
+
+      // ברירת מחדל – טקסט רגיל
+      doc.fontSize(12).fillColor("black").text(line, {
+        align: "left",
       });
-    };
-
-    addSection("Key Skills", contentObj.key_skills_to_highlight);
-    addSection("Suggested Changes", contentObj.suggested_changes);
-    addSection("Missing Qualifications", contentObj.missing_qualifications);
-    addSection("Recommendations", contentObj.specific_recommendations);
-
-    // --- Full Improved CV ---
-    if (contentObj.improved_cv_full_text) {
-      doc.addPage();
-      doc.fontSize(16).fillColor("black").text("Full Improved CV", { underline: true });
-      doc.moveDown(0.3);
-
-      const lines = contentObj.improved_cv_full_text.split(/\r?\n/);
-      lines.forEach(line => {
-        if (line.trim() === "") {
-          doc.moveDown(0.2);
-        } else {
-          doc.fontSize(12).text(line, { align: "left" });
-          doc.moveDown(0.1);
-        }
-      });
+      doc.moveDown(0.15);
     }
 
     doc.end();
 
-    stream.on("finish", () => resolve(outputFilePath));
-    stream.on("error", (err) => reject(err));
+    stream.on("finish", resolve);
+    stream.on("error", reject);
   });
 }
+
 
 // ---------- main service: optimization for a specific job ----------
 export async function optimizeCvForJob(uploadedFilePath, jobDescription) {
   const base64Pdf = pdfFileToBase64(uploadedFilePath);
 
- const prompt = `
+const prompt = `
 You are an expert CV/resume writer and job matching specialist.
 
 You will receive:
 1) A CV as a PDF file encoded in base64.
 2) A job description as plain text.
 
+Your goals:
+- Do NOT invent or fabricate experience, skills, degrees, or dates that are not clearly supported by the CV.
+- You may only rephrase, reorganize, highlight, or slightly expand on what is already present in the CV.
+- Keep the improved CV concise and focused (roughly one page of content).
+
 Your tasks:
 1. Decode and read the CV.
 2. Read the job description carefully.
 3. Analyze how well the CV fits this specific job.
-4. Generate concrete improvements.
-5. Rewrite the CV content so it fits approximately **one page** (single-page PDF).
-6. Provide a precise match score as a number from 0 to 100.
-7. Give short, clear, actionable recommendations.
+4. Suggest concrete and realistic improvements based ONLY on the existing information.
+5. Emphasize the most relevant skills and experience for this specific job.
+6. Rewrite the CV content so it:
+   - stays faithful to the real facts in the original CV,
+   - is clearly structured,
+   - is not too long (approximately one page),
+   - uses clear, professional language.
+7. Provide a precise match score as a number from 0 to 100.
+8. Provide short, clear, actionable recommendations (not long paragraphs).
 
 Base64 CV:
 ${base64Pdf}
@@ -110,15 +170,19 @@ Return ONLY a valid JSON object with the following structure:
   "suggested_changes": ["concise change 1", "concise change 2"],
   "missing_qualifications": ["missing 1", "missing 2"],
   "specific_recommendations": ["short recommendation 1", "short recommendation 2"],
-  "improved_cv_full_text": "concise improved CV content suitable for one page"
+  "improved_cv_full_text": "concise improved CV content suitable for one page, based only on real facts from the original CV"
 }
 
 Rules:
-- "match_score" must be a number (0-100), not a string.
-- "improved_cv_full_text" should be concise, professional, and fit on roughly one page.
-- Recommendations must be short, actionable, and easy to follow.
+- "match_score" must be a number (0-100), not a string and not a percentage with %.
+- Do NOT add fake jobs, fake skills, fake tools, fake degrees, or fake dates.
+- If you are not sure about some detail, do NOT guess it and do NOT invent it.
+- You may reorder, rephrase, and slightly condense or expand, but always stay faithful to the original CV.
+- "improved_cv_full_text" must be professional, focused, and roughly one page of content.
+- Recommendations must be short, actionable bullet-style suggestions.
 - Return ONLY JSON. Do NOT include markdown, explanations, or extra text.
 `;
+
 
 
   let responseText;
